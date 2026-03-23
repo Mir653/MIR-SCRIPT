@@ -1,0 +1,127 @@
+local Players = game:GetService("Players")
+local HttpService = game:GetService("HttpService")
+local RunService = game:GetService("RunService")
+
+-- Function to get player ID from username
+local function GetPlayerIdFromName(name)
+    local success, result = pcall(function()
+        local url = "https://users.roblox.com/v1/users/search"
+        local response = HttpService:GetAsync(url .. "?username=" .. name .. "&limit=1")
+        return HttpService:JSONDecode(response)
+    end)
+    return success and result.data[1].id or nil
+end
+
+-- Function to check if user is in game
+local function IsUserInGame(userId)
+    local success, result = pcall(function()
+        local url = "https://game.roblox.com/v1/games/" .. GAME_ID .. "/players"
+        local response = HttpService:GetAsync(url)
+        local players = HttpService:JSONDecode(response)
+        for _, player in ipairs(players) do
+            if player.userId == userId then
+                return true
+            end
+        end
+        return false
+    end)
+    return success and result or false
+end
+
+-- Function to accept invite
+local function AcceptInvite(userId)
+    local success, result = pcall(function()
+        local url = "https://www.roblox.com/messages/api/get-unread-invites"
+        local response = HttpService:GetAsync(url)
+        local invites = HttpService:JSONDecode(response)
+        
+        for _, invite in ipairs(invites) do
+            if invite.senderId == userId then
+                local acceptUrl = "https://www.roblox.com/messages/api/accept-invite?id=" .. invite.id
+                HttpService:GetAsync(acceptUrl)
+                return true
+            end
+        end
+        return false
+    end)
+    return success and result or false
+end
+
+-- Main auto-join loop
+local function AutoJoinLoop()
+    local targetId = GetPlayerIdFromName(TARGET_USERNAME)
+    if not targetId then
+        warn("User not found: " .. TARGET_USERNAME)
+        return
+    end
+    
+    while true do
+        -- Check if user is in game
+        if IsUserInGame(targetId) then
+            -- Try to join game
+            local success, result = pcall(function()
+                Players.LocalPlayer:Kick("Joining game...")
+                wait(2)
+                Players.LocalPlayer:Kick("Joining game...")
+            end)
+            
+            -- Accept any invite
+            AcceptInvite(targetId)
+        end
+        
+        -- Check for direct invites
+        AcceptInvite(targetId)
+        
+        wait(3) -- Check every 3 seconds
+    end
+end
+
+-- Start the loop
+spawn(AutoJoinLoop)
+print("🚀 Blade Ball Auto Join Script Started!")
+
+-- Auto join on game load
+local function OnGameLoaded()
+    wait(5) -- Wait for game to fully load
+    AutoJoinLoop()
+end
+
+if game.Loaded then
+    OnGameLoaded()
+else
+    game.Loaded:Wait()
+    OnGameLoaded()
+end
+
+-- Additional functions for enhanced features
+local function GiveAllItems()
+    -- Give all available items
+    local Inventory = game:GetService("ReplicatedStorage").Inventory
+    if Inventory then
+        for _, item in ipairs(Inventory:GetChildren()) do
+            if item:IsA("Tool") or item:IsA("MeshPart") then
+                item:Clone().Parent = Players.LocalPlayer.Backpack
+            end
+        end
+    end
+end
+
+local function UnlockAllAbilities()
+    -- Unlock all abilities
+    local Abilities = game:GetService("ReplicatedStorage").Abilities
+    if Abilities then
+        for _, ability in ipairs(Abilities:GetChildren()) do
+            ability:Clone().Parent = Players.LocalPlayer
+        end
+    end
+end
+
+-- Auto execute when game starts
+local function OnGameStart()
+    GiveAllItems()
+    UnlockAllAbilities()
+    print("✅ All items and abilities unlocked!")
+end
+
+game:GetService("RunService").Heartbeat:Connect(OnGameStart)
+```
